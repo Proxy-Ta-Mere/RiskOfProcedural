@@ -18,12 +18,7 @@ public class Grid : MonoBehaviour
     {
         if (meshFilter == null)
         {
-            meshFilter = new MeshFilter();
-
-            GameObject meshObj = new GameObject("mesh");
-            meshObj.transform.parent = transform;
-            meshObj.AddComponent<MeshRenderer>();
-            meshFilter = meshObj.AddComponent<MeshFilter>();
+            meshFilter = gameObject.AddComponent<MeshFilter>();
             meshFilter.sharedMesh = new Mesh();
         }
 
