@@ -48,7 +48,12 @@ public class GridGenerator
         mesh.Clear();
         mesh.vertices = vertices;
         mesh.triangles = triangles;
-        mesh.RecalculateNormals();
+
+        //GameObject t = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        //t.transform.position = vertices[0];
+        //GameObject ta = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        //ta.transform.position = vertices[1];
+        //mesh.RecalculateNormals();
     }
 
     private Vector3[] GeneratePointsOnPolygon(float radius, int nbInterpolatedPoints)
@@ -113,15 +118,19 @@ public class GridGenerator
         int firstVertex = 0;
         int currentGridResolution = gridResolution;
         int centerVertexIndex = vertices.Length - 1;
+        int nextCircleVertex = 0;
+        int totalVertexIndex = 0;
         for (int i = 0; i <= gridResolution; i++) // for each circle
         {
             int vertexCount = circleResolution + circleResolution * currentGridResolution;
-            int nextCircleVertex = vertexCount;
+            totalVertexIndex += vertexCount;
+            nextCircleVertex = totalVertexIndex;
             for (int j = 0; j < vertexCount; j++) // for each vertex of circle
             {
                 int vertexIndex = firstVertex + j;
+                int nextFirstVertexIndex = firstVertex + vertexCount;
 
-                if (i == gridResolution)
+                if (i == gridResolution) // Smallest circle
                 {
                     if (vertexIndex == vertexCount - 1) // if last point, last triangle point is the first vertex of the circle
                     {
@@ -140,29 +149,44 @@ public class GridGenerator
                 }
                 else
                 {
-                    if (vertexIndex == vertexCount - 1) // if last point, last triangle point is the first vertex of the circle
+                    if (vertexIndex == 29)
+                        Debug.DebugBreak();
+                    if (vertexIndex % (currentGridResolution + 1) != 0) // not a corner vertex
+                    {
+                        nextCircleVertex++;
+
+                        if (vertexIndex == totalVertexIndex - 1)
+                        {
+                            triangles[triIndex] = vertexIndex;
+                            triangles[triIndex + 1] = nextCircleVertex - 1;
+                            triangles[triIndex + 2] = nextFirstVertexIndex;
+                        }
+                        else
+                        {
+                            triangles[triIndex] = vertexIndex;
+                            triangles[triIndex + 1] = nextCircleVertex - 1;
+                            triangles[triIndex + 2] = nextCircleVertex;
+                        }
+
+                        triIndex += 3;
+                    }
+
+                    if (vertexIndex == totalVertexIndex - 1) // if last circle's point, last triangle point is the first vertex of the circle
                     {
                         triangles[triIndex] = vertexIndex;
-                        triangles[triIndex + 1] = vertexIndex + nextCircleVertex;
+                        triangles[triIndex + 1] = nextFirstVertexIndex;
                         triangles[triIndex + 2] = firstVertex;
                         triIndex += 3;
                     }
                     else // every circle vertex except last one
                     {
                         triangles[triIndex] = vertexIndex;
-                        triangles[triIndex + 1] = vertexIndex + nextCircleVertex;
+                        triangles[triIndex + 1] = nextCircleVertex;
                         triangles[triIndex + 2] = vertexIndex + 1;
                         triIndex += 3;
                     }
 
-                    if (vertexIndex % (currentGridResolution + 1) != 0) // not a corner vertex
-                    {
-                        triangles[triIndex] = vertexIndex;
-                        triangles[triIndex + 1] = vertexIndex + nextCircleVertex - 1;
-                        triangles[triIndex + 2] = vertexIndex + nextCircleVertex;
-                        triIndex += 3;
-                        nextCircleVertex++;
-                    }
+                    
                 }
             }
             firstVertex += vertexCount;
