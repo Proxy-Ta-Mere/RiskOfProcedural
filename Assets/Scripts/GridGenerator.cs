@@ -1,8 +1,10 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Security;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 public class GridGenerator
 {
@@ -10,40 +12,51 @@ public class GridGenerator
     Mesh mesh;
     int circleResolution;
     int gridResolution;
-    int stepCircleIndex;
 
     Vector3[] vertices;
     int[] triangles;
+
+    private int circleCount;
 
     public GridGenerator(Mesh mesh, int circleResolution, int gridResolution)
     {
         this.mesh = mesh;
         this.circleResolution = circleResolution;
         this.gridResolution = gridResolution;
-        this.stepCircleIndex = gridResolution + 1;
+        circleCount = gridResolution + 1;
 
         vertices = new Vector3[circleResolution + 1 + (gridResolution * circleResolution)];
-        triangles = new int[circleResolution * stepCircleIndex * 3];
+        //triangles = new int[circleResolution * stepCircleIndex * 3];
     }
 
     public void ConstructMesh()
     {
-        Vector3[] centerGrid = new Vector3[1] { Vector3.zero };
-        Vector3[] points = GeneratePointsOnPolygon(1f, gridResolution);
-        GenerateTriangles();
+        Vector3[] temp_vertices = new Vector3[0];
+        for (int i = 0; i <= gridResolution; i++)
+        {
+            float radius = 1f / (i + 1f);
+            Debug.Log(radius);
+            Vector3[] current_vertices = GeneratePointsOnPolygon(radius, gridResolution - i);
+            temp_vertices = temp_vertices.Concat(current_vertices).ToArray();
+        }
 
-        mesh.Clear();
-        mesh.vertices = points.Concat(centerGrid).ToArray();
-        mesh.triangles = triangles;
-        mesh.RecalculateNormals();
+        Vector3[] centerGrid = new Vector3[1] { Vector3.zero };
+        vertices = temp_vertices.Concat(centerGrid).ToArray();
+
+        //GenerateTriangles();
+        //mesh.Clear();
+        //mesh.vertices = vertices;
+        //mesh.triangles = triangles;
+        //mesh.RecalculateNormals();
     }
 
     private Vector3[] GeneratePointsOnPolygon(float radius, int nbInterpolatedPoints)
     {
         Vector3[] vertices = new Vector3[circleResolution + (nbInterpolatedPoints * circleResolution)];
+        int stepCircleIndex = nbInterpolatedPoints + 1;
 
-        GeneratePointsOnCircle(radius, ref vertices);
-        GenerateInterpolatedPoints(nbInterpolatedPoints, ref vertices);
+        GeneratePointsOnCircle(radius, ref vertices, stepCircleIndex);
+        GenerateInterpolatedPoints(nbInterpolatedPoints, ref vertices, stepCircleIndex);
 
         return vertices;
     }
@@ -51,7 +64,7 @@ public class GridGenerator
     /// <summary>
     /// Init "main" points of circle
     /// </summary>
-    private void GeneratePointsOnCircle(float radius, ref Vector3[] vertices)
+    private void GeneratePointsOnCircle(float radius, ref Vector3[] vertices, int stepCircleIndex)
     {
         float angle = 2 * Mathf.PI / circleResolution;
 
@@ -67,7 +80,7 @@ public class GridGenerator
     /// <summary>
     /// Interpolate points between main points of circle
     /// </summary>
-    private void GenerateInterpolatedPoints(int nbInterlopatedPoints, ref Vector3[] vertices)
+    private void GenerateInterpolatedPoints(int nbInterlopatedPoints, ref Vector3[] vertices, int stepCircleIndex)
     {
         for (int i = 0; i < circleResolution; i++)
         {
@@ -96,25 +109,33 @@ public class GridGenerator
     private void GenerateTriangles()
     {
         int triIndex = 0;
-
-        for (int i = 0; i < vertices.Length - 1; i++)
+        int inbetweenCount = gridResolution;
+        int vertexOffset = 0;
+        for (int i = 0; i < circleCount; i++)
         {
-            // Every triangle except last
-            if (i != vertices.Length - 2)
-            {
-                triangles[triIndex] = i;
-                triangles[triIndex + 1] = vertices.Length - 1;
-                triangles[triIndex + 2] = i + 1;
-            }
-            else // Last triangle
-            {
-                triangles[triIndex] = i;
-                triangles[triIndex + 1] = vertices.Length - 1;
-                triangles[triIndex + 2] = 0;
-            }
+            inbetweenCount -= i;
+            int vertexCount = circleResolution + circleResolution * inbetweenCount;
 
-            triIndex += 3;
+            for (int j = 0; j < vertexCount; j++)
+            {
+                int vertexIndex = j + vertexOffset;
+
+                // create every triangle that have 2
+                int vertex1 = vertexIndex;
+                int vertex2 = vertexIndex + vertexCount;
+                int vertex3 = vertexIndex + 1;
+                if (j == vertexCount - 1)
+                    vertex3 = vertexOffset;
+
+                triangles[triIndex] = vertex1;
+                triangles[triIndex + 1] = vertex2;
+                triangles[triIndex + 2] = vertex3;
+                triIndex += 3;
+
+                
+            }
+            vertexOffset += vertexCount;
+            
         }
     }
 }
-
