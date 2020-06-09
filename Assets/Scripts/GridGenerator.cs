@@ -49,11 +49,7 @@ public class GridGenerator
         mesh.vertices = vertices;
         mesh.triangles = triangles;
 
-        //GameObject t = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        //t.transform.position = vertices[0];
-        //GameObject ta = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        //ta.transform.position = vertices[1];
-        //mesh.RecalculateNormals();
+        mesh.RecalculateNormals();
     }
 
     private Vector3[] GeneratePointsOnPolygon(float radius, int nbInterpolatedPoints)
@@ -114,83 +110,46 @@ public class GridGenerator
 
     private void GenerateTriangles()
     {
-        int triIndex = 0;
-        int firstVertex = 0;
-        int currentGridResolution = gridResolution;
-        int centerVertexIndex = vertices.Length - 1;
-        int nextCircleVertex = 0;
-        int totalVertexIndex = 0;
-        for (int i = 0; i <= gridResolution; i++) // for each circle
+        int triangleIndex = 0;
+        int vertexOffset = 0;
+        for (int circleIndex = 0; circleIndex <= gridResolution; circleIndex++)
         {
-            int vertexCount = circleResolution + circleResolution * currentGridResolution;
-            totalVertexIndex += vertexCount;
-            nextCircleVertex = totalVertexIndex;
-            for (int j = 0; j < vertexCount; j++) // for each vertex of circle
+            int circleEdgeSubdivisions = gridResolution - circleIndex;
+            int circleSize = circleResolution + circleResolution * circleEdgeSubdivisions;
+            int vertexOnNextCircleIndex = circleSize + vertexOffset;
+
+            int nextCircleFirstVertex = vertexOffset + circleSize;
+
+            for (int vertexCircleIndex = 0; vertexCircleIndex < circleSize; vertexCircleIndex++)
             {
-                int vertexIndex = firstVertex + j;
-                int nextFirstVertexIndex = firstVertex + vertexCount;
+                int vertexIndex = vertexCircleIndex + vertexOffset;
+                bool lastVertex = vertexCircleIndex == circleSize - 1;
 
-                if (i == gridResolution) // Smallest circle
+                int firstVertex = vertexIndex;
+                int secondVertex;
+                int thirdVertex;
+
+                if (vertexCircleIndex % (circleEdgeSubdivisions + 1) != 0)
                 {
-                    if (vertexIndex == vertexCount - 1) // if last point, last triangle point is the first vertex of the circle
-                    {
-                        triangles[triIndex] = vertexIndex;
-                        triangles[triIndex + 1] = centerVertexIndex;
-                        triangles[triIndex + 2] = firstVertex;
-                        triIndex += 3;
-                    }
-                    else // every circle vertex except last one
-                    {
-                        triangles[triIndex] = vertexIndex;
-                        triangles[triIndex + 1] = centerVertexIndex;
-                        triangles[triIndex + 2] = vertexIndex + 1;
-                        triIndex += 3;
-                    }
+                    vertexOnNextCircleIndex++;
+                    secondVertex = vertexOnNextCircleIndex - 1;
+                    thirdVertex = lastVertex ? nextCircleFirstVertex : vertexOnNextCircleIndex;
+                    CreateTriangle(ref triangleIndex, firstVertex, secondVertex, thirdVertex);
                 }
-                else
-                {
-                    if (vertexIndex == 29)
-                        Debug.DebugBreak();
-                    if (vertexIndex % (currentGridResolution + 1) != 0) // not a corner vertex
-                    {
-                        nextCircleVertex++;
 
-                        if (vertexIndex == totalVertexIndex - 1)
-                        {
-                            triangles[triIndex] = vertexIndex;
-                            triangles[triIndex + 1] = nextCircleVertex - 1;
-                            triangles[triIndex + 2] = nextFirstVertexIndex;
-                        }
-                        else
-                        {
-                            triangles[triIndex] = vertexIndex;
-                            triangles[triIndex + 1] = nextCircleVertex - 1;
-                            triangles[triIndex + 2] = nextCircleVertex;
-                        }
-
-                        triIndex += 3;
-                    }
-
-                    if (vertexIndex == totalVertexIndex - 1) // if last circle's point, last triangle point is the first vertex of the circle
-                    {
-                        triangles[triIndex] = vertexIndex;
-                        triangles[triIndex + 1] = nextFirstVertexIndex;
-                        triangles[triIndex + 2] = firstVertex;
-                        triIndex += 3;
-                    }
-                    else // every circle vertex except last one
-                    {
-                        triangles[triIndex] = vertexIndex;
-                        triangles[triIndex + 1] = nextCircleVertex;
-                        triangles[triIndex + 2] = vertexIndex + 1;
-                        triIndex += 3;
-                    }
-
-                    
-                }
+                secondVertex = lastVertex ? nextCircleFirstVertex: vertexOnNextCircleIndex;
+                thirdVertex = lastVertex ? vertexOffset : vertexIndex + 1;
+                CreateTriangle(ref triangleIndex, firstVertex, secondVertex, thirdVertex);
             }
-            firstVertex += vertexCount;
-            currentGridResolution--;
+            vertexOffset += circleSize;
         }
+    }
+    private void CreateTriangle(ref int triangleIndex, int firstVertex, int secondVertex, int thirdVertex)
+    {
+        triangles[triangleIndex] = firstVertex;
+        triangles[triangleIndex + 1] = secondVertex;
+        triangles[triangleIndex + 2] = thirdVertex;
+        triangleIndex += 3;
+
     }
 }
