@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Security;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -12,20 +13,23 @@ public class GridGenerator
     Mesh mesh;
     int circleResolution;
     int gridResolution;
+    bool mergeTriangles;
 
     Vector3[] vertices;
-    int[] triangles;
+    List<Triangle> triangles;
+    List<Quad> quads;
 
-
-    public GridGenerator(Mesh mesh, int circleResolution, int gridResolution)
+    public GridGenerator(Mesh mesh, int circleResolution, int gridResolution, bool mergeTriangles)
     {
         this.mesh = mesh;
         this.circleResolution = circleResolution;
         this.gridResolution = gridResolution;
+        this.mergeTriangles = mergeTriangles;
 
         vertices = new Vector3[circleResolution + 1 + (gridResolution * circleResolution)];
 
-        triangles = new int[(gridResolution + 1) * (gridResolution + 1) * circleResolution * 3];
+        triangles = Helper.CreateList<Triangle>((gridResolution + 1) * (gridResolution + 1) * circleResolution);
+        quads = new List<Quad>();
     }
 
     public void ConstructMesh()
@@ -45,11 +49,19 @@ public class GridGenerator
         vertices = tempVertices.Concat(centerGrid).ToArray();
 
         GenerateTriangles();
+
+        if (mergeTriangles) MergeTriangles();
+
         mesh.Clear();
         mesh.vertices = vertices;
-        mesh.triangles = triangles;
+        //mesh.subMeshCount = 1;
+        //mesh.SetIndices(GridService.ListTriangleToArray(triangles), MeshTopology.Triangles, 0);
+        //mesh.SetIndices(GridService.ListQuadToArray(quads), MeshTopology.Quads, 1);
 
-        mesh.RecalculateNormals();
+        var lines = GridService.ListTriangleLines(triangles).Concat(GridService.ListQuadLines(quads));
+        mesh.SetIndices(lines.ToArray(), MeshTopology.Lines, 0);
+
+        //mesh.RecalculateNormals();
     }
 
     private Vector3[] GeneratePointsOnPolygon(float radius, int nbInterpolatedPoints)
@@ -134,22 +146,59 @@ public class GridGenerator
                     vertexOnNextCircleIndex++;
                     secondVertex = vertexOnNextCircleIndex - 1;
                     thirdVertex = lastVertex ? nextCircleFirstVertex : vertexOnNextCircleIndex;
-                    CreateTriangle(ref triangleIndex, firstVertex, secondVertex, thirdVertex);
+
+                    triangles[triangleIndex] = new Triangle(firstVertex, secondVertex, thirdVertex);
+                    triangleIndex += 1;
                 }
 
-                secondVertex = lastVertex ? nextCircleFirstVertex: vertexOnNextCircleIndex;
+                secondVertex = lastVertex ? nextCircleFirstVertex : vertexOnNextCircleIndex;
                 thirdVertex = lastVertex ? vertexOffset : vertexIndex + 1;
-                CreateTriangle(ref triangleIndex, firstVertex, secondVertex, thirdVertex);
+
+                triangles[triangleIndex] = new Triangle(firstVertex, secondVertex, thirdVertex);
+                triangleIndex += 1;
             }
             vertexOffset += circleSize;
         }
     }
-    private void CreateTriangle(ref int triangleIndex, int firstVertex, int secondVertex, int thirdVertex)
-    {
-        triangles[triangleIndex] = firstVertex;
-        triangles[triangleIndex + 1] = secondVertex;
-        triangles[triangleIndex + 2] = thirdVertex;
-        triangleIndex += 3;
 
+    private void MergeTriangles()
+    {
+        List<Triangle> trianglesClone = Helper.Clone<Triangle>(triangles);
+        List<bool> trianglesExist = Helper.CreateList<bool>(triangles.Count, true);
+
+        for (var i = 0; i < trianglesClone.Count; i++)
+        {
+            if (trianglesExist[i])
+            {
+                Triangle triangle = trianglesClone[i];
+
+                List<Vector2> edges = triangle.GetEdgesTriangle();
+
+                for (var j = 0; j < trianglesClone.Count; j++)
+                {
+                    if (trianglesExist[i] && trianglesExist[j] && !triangle.Equals(trianglesClone[j]))
+                    {
+                        Triangle triangleToCompare = trianglesClone[j];
+                        foreach (Vector2 edge in edges)
+                        {
+                            List<Vector2> edgesToCompare = triangleToCompare.GetEdgesTriangle();
+
+                            foreach (Vector2 edgeToCompare in edgesToCompare)
+                            {
+                                if (GridService.EdgeEquals(edge, edgeToCompare))
+                                {
+                                    trianglesExist[i] = false;
+                                    trianglesExist[j] = false;
+
+                                    quads.Add(GridService.CreateQuadFromTriangles(triangle, triangleToCompare, vertices));
+                                    triangles.Remove(triangle);
+                                    triangles.Remove(triangleToCompare);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
