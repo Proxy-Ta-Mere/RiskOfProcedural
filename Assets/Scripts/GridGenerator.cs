@@ -190,9 +190,14 @@ public class GridGenerator
                                     trianglesExist[i] = false;
                                     trianglesExist[j] = false;
 
-                                    quads.Add(GridService.CreateQuadFromTriangles(triangle, triangleToCompare, vertices));
-                                    triangles.Remove(triangle);
-                                    triangles.Remove(triangleToCompare);
+                                    List<int> unorderedQuadVerts = GridService.GetQuadVertices(triangle, triangleToCompare);
+                                    if(!GridService.IsConvex(unorderedQuadVerts))
+                                    {
+                                        Quad quad = new Quad(GridService.OrderVertices(unorderedQuadVerts, vertices));
+                                        quads.Add(quad);
+                                        triangles.Remove(triangle);
+                                        triangles.Remove(triangleToCompare);
+                                    }
                                 }
                             }
                         }

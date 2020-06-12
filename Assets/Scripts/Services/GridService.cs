@@ -15,9 +15,8 @@ public static class GridService
         return false;
     }
 
-    public static Quad CreateQuadFromTriangles(Triangle triangle, Triangle triangleToCompare, Vector3[] vertices)
+    public static List<int> GetQuadVertices(Triangle triangle, Triangle triangleToCompare)
     {
-        Quad quad = new Quad();
         List<int> quadVertices = new List<int>();
 
         for (int i = 0; i < 3; i++)
@@ -33,10 +32,10 @@ public static class GridService
         }
 
         quadVertices = quadVertices.Distinct().ToList();
-        return new Quad(OrderVertices(quadVertices, vertices));
+        return quadVertices;
     }
 
-    private static int[] OrderVertices(List<int> quadVertices, Vector3[] vertices)
+    public static int[] OrderVertices(List<int> quadVertices, Vector3[] vertices)
     {
         float centerX = 0.25f * (vertices[quadVertices[0]].x
             + vertices[quadVertices[1]].x
@@ -149,4 +148,13 @@ public static class GridService
         return quadList.ToArray();
     }
 
+    public static bool IsConvex(List<int> vertexIndices, Vector3[] vertices)
+    {
+
+        return true;
+    }
+    public static List<Vector3> GetVerticesCoordinates(List<int> vertexIndices, Vector3[] vertices)
+    {
+
+    }
 }
