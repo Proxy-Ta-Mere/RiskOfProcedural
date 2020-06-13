@@ -1,11 +1,6 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using System.Collections.Specialized;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Security;
-using UnityEditor;
 using UnityEngine;
-using UnityEngine.UIElements;
 
 public class GridGenerator
 {
@@ -15,7 +10,7 @@ public class GridGenerator
     int gridResolution;
     bool mergeTriangles;
 
-    Vector3[] vertices;
+    List<Vector3> vertices;
     List<Triangle> triangles;
     List<Quad> quads;
 
@@ -26,8 +21,7 @@ public class GridGenerator
         this.gridResolution = gridResolution;
         this.mergeTriangles = mergeTriangles;
 
-        vertices = new Vector3[circleResolution + 1 + (gridResolution * circleResolution)];
-
+        vertices = Helper.CreateList<Vector3>(circleResolution + 1 + (gridResolution * circleResolution));
         triangles = Helper.CreateList<Triangle>((gridResolution + 1) * (gridResolution + 1) * circleResolution);
         quads = new List<Quad>();
     }
@@ -43,17 +37,17 @@ public class GridGenerator
             tempVertices = tempVertices.Concat(currentVertices).ToArray();
         }
 
-        // Array of one point containing the center vertex
-        Vector3[] centerGrid = new Vector3[1] { Vector3.zero };
+        vertices = tempVertices.ToList();
 
-        vertices = tempVertices.Concat(centerGrid).ToArray();
+        // center vertex
+        vertices.Add(Vector3.zero);
 
         GenerateTriangles();
 
         if (mergeTriangles) MergeTriangles();
 
         mesh.Clear();
-        mesh.vertices = vertices;
+        mesh.vertices = vertices.ToArray();
         //mesh.subMeshCount = 1;
         //mesh.SetIndices(GridService.ListTriangleToArray(triangles), MeshTopology.Triangles, 0);
         //mesh.SetIndices(GridService.ListQuadToArray(quads), MeshTopology.Quads, 1);
@@ -165,18 +159,23 @@ public class GridGenerator
     {
         List<Triangle> trianglesClone = Helper.Clone<Triangle>(triangles);
         List<bool> trianglesExist = Helper.CreateList<bool>(triangles.Count, true);
+        bool remainingTriangles = true;
 
-        for (var i = 0; i < trianglesClone.Count; i++)
+        while (remainingTriangles)
         {
-            if (trianglesExist[i])
+            var triangleIndex = Random.Range(0, trianglesClone.Count);
+
+            remainingTriangles = false;
+
+            if (trianglesExist[triangleIndex])
             {
-                Triangle triangle = trianglesClone[i];
+                Triangle triangle = trianglesClone[triangleIndex];
 
                 List<Vector2> edges = triangle.GetEdgesTriangle();
 
                 for (var j = 0; j < trianglesClone.Count; j++)
                 {
-                    if (trianglesExist[i] && trianglesExist[j] && !triangle.Equals(trianglesClone[j]))
+                    if (trianglesExist[triangleIndex] && trianglesExist[j] && !triangle.Equals(trianglesClone[j]))
                     {
                         Triangle triangleToCompare = trianglesClone[j];
                         foreach (Vector2 edge in edges)
@@ -187,22 +186,34 @@ public class GridGenerator
                             {
                                 if (GridService.EdgeEquals(edge, edgeToCompare))
                                 {
-                                    trianglesExist[i] = false;
-                                    trianglesExist[j] = false;
-
                                     List<int> unorderedQuadVerts = GridService.GetQuadVertices(triangle, triangleToCompare);
-                                    if(!GridService.IsConvex(unorderedQuadVerts))
+                                    Vector3 quadCenter = GridService.GetQuadCenter(unorderedQuadVerts, edge, vertices);
+                                    if (quadCenter != new Vector3(1000, 1000, 1000))
                                     {
-                                        Quad quad = new Quad(GridService.OrderVertices(unorderedQuadVerts, vertices));
-                                        quads.Add(quad);
-                                        triangles.Remove(triangle);
-                                        triangles.Remove(triangleToCompare);
+                                        List<Vector3> unorderedQuadVertsCoord = GridService.GetVerticesCoordinates(unorderedQuadVerts, vertices);
+                                        if (GridService.IsConvex(unorderedQuadVertsCoord) && !GridService.IsTriangle(unorderedQuadVertsCoord))
+                                        {
+                                            Quad quad = new Quad(GridService.OrderVertices(unorderedQuadVerts, quadCenter, vertices));
+                                            quads.Add(quad);
+                                            triangles.Remove(triangle);
+                                            triangles.Remove(triangleToCompare);
+
+                                            trianglesExist[triangleIndex] = false;
+                                            trianglesExist[j] = false;
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
+
+                trianglesExist[triangleIndex] = false;
+            }
+
+            for (int i = 0; i < trianglesExist.Count; i++)
+            {
+                if (trianglesExist[i] == true) remainingTriangles = true;
             }
         }
     }

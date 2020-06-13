@@ -1,8 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-
-public class Quad
+﻿public class Quad
 {
     public int vertex0;
     public int vertex1;

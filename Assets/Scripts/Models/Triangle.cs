@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -29,7 +28,7 @@ public class Triangle : ICloneable
 
     public int[] Vertices()
     {
-        return new[] {vertex0, vertex1, vertex2};
+        return new[] { vertex0, vertex1, vertex2 };
     }
 
     public override bool Equals(object obj)
@@ -49,7 +48,7 @@ public class Triangle : ICloneable
             vertex2 = this.vertex2
         };
 
-        return (object) newTriangle;
+        return (object)newTriangle;
     }
 
     public override int GetHashCode()

@@ -1,6 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 
 public class Grid : MonoBehaviour
 {
@@ -25,7 +23,7 @@ public class Grid : MonoBehaviour
         }
 
         generator = new GridGenerator(meshFilter.sharedMesh, cicleResolution, gridResolution, mergeTriangles);
-    }    
+    }
 
     public void GenerateGrid()
     {

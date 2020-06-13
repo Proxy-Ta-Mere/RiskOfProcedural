@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
 using UnityEngine;
 
 public static class GridService
@@ -35,24 +33,44 @@ public static class GridService
         return quadVertices;
     }
 
-    public static int[] OrderVertices(List<int> quadVertices, Vector3[] vertices)
+    public static Vector3 GetQuadCenter(List<int> unorderedQuadVerts, Vector2 commonEdge, List<Vector3> vertices)
     {
-        float centerX = 0.25f * (vertices[quadVertices[0]].x
-            + vertices[quadVertices[1]].x
-            + vertices[quadVertices[2]].x
-            + vertices[quadVertices[3]].x);
+        Vector3 quadCenter = new Vector3(1000, 1000, 1000);
 
-        float centerY = 0.25f * (vertices[quadVertices[0]].y
-            + vertices[quadVertices[1]].y
-            + vertices[quadVertices[2]].y
-            + vertices[quadVertices[3]].y);
+        // Diag 1 is common edge of triangles
+        List<int> diag1 = new List<int> { Convert.ToInt32(commonEdge.x), Convert.ToInt32(commonEdge.y) };
 
-        float centerZ = 0.25f * (vertices[quadVertices[0]].z
-            + vertices[quadVertices[1]].z
-            + vertices[quadVertices[2]].z
-            + vertices[quadVertices[3]].z);
+        // Diag 2 is last points of our quad vertices (minus diag 1)
+        List<int> diag2 = unorderedQuadVerts.Except(diag1).ToList();
 
-        Vector3 quadCenter = new Vector3(centerX, centerY, centerZ);
+        // Init 4 points
+        Vector3 p0 = vertices[diag1[0]];
+        Vector3 p1 = vertices[diag1[1]];
+        Vector3 p2 = vertices[diag2[0]];
+        Vector3 p3 = vertices[diag2[1]];
+
+        float A1 = (p1.z - p0.z);
+        float B1 = (p0.x - p1.x);
+        float A2 = (p3.z - p2.z);
+        float B2 = (p2.x - p3.x);
+        float delta = A1 * B2 - A2 * B1;
+
+        if (delta == 0)
+            throw new ArgumentException("Lines are parallel");
+
+        float C1 = A1 * p0.x + B1 * p0.z;
+        float C2 = A2 * p2.x + B2 * p2.z;
+
+        float x = (B2 * C1 - B1 * C2) / delta;
+        float y = (A1 * C2 - A2 * C1) / delta;
+
+        quadCenter = new Vector3(x, 0, y);
+
+        return quadCenter;
+    }
+
+    public static int[] OrderVertices(List<int> quadVertices, Vector3 quadCenter, List<Vector3> vertices)
+    {
         int[] newQuadVertices = new int[4];
 
         // Init p0
@@ -65,15 +83,17 @@ public static class GridService
             Vector3 point = vertices[quadVertices[i]];
             Vector3 centerToPoint = (point - quadCenter).normalized;
 
-            if(Vector3.Dot(centerToPointZero, centerToPoint) <= -0.99f) // p2
+            int vertexIndex = vertices.IndexOf(point);
+
+            if (Vector3.Dot(centerToPointZero, centerToPoint) <= -0.99f) // p2
             {
-                newQuadVertices[2] = Array.IndexOf(vertices, point);
-            } 
+                newQuadVertices[2] = vertexIndex;
+            }
             else
             {
                 var res = (point.x - quadCenter.x) * (p0.z - quadCenter.z) - (point.z - quadCenter.z) * (p0.x - quadCenter.x);
-                if (res > 0) newQuadVertices[1] = Array.IndexOf(vertices, point);
-                else if (res < 0) newQuadVertices[3] = Array.IndexOf(vertices, point);
+                if (res > 0) newQuadVertices[1] = vertexIndex; // p3
+                else if (res < 0) newQuadVertices[3] = vertexIndex; // p1
             }
         }
 
@@ -148,13 +168,45 @@ public static class GridService
         return quadList.ToArray();
     }
 
-    public static bool IsConvex(List<int> vertexIndices, Vector3[] vertices)
+    public static bool IsConvex(List<Vector3> quadCoordinates)
     {
+        foreach (Vector3 point in quadCoordinates)
+        {
+            List<Vector3> otherPoints = quadCoordinates.Where(quadCoord => quadCoord != point).ToList();
+
+            if (Helper.PointInTriangle(point, otherPoints)) return false;
+        }
 
         return true;
     }
-    public static List<Vector3> GetVerticesCoordinates(List<int> vertexIndices, Vector3[] vertices)
+    public static List<Vector3> GetVerticesCoordinates(List<int> vertexIndices, List<Vector3> vertices)
     {
+        List<Vector3> VerticesCoordinates = Helper.CreateList<Vector3>(vertexIndices.Count);
 
+        for (int i = 0; i < vertexIndices.Count; i++)
+        {
+            VerticesCoordinates[i] = vertices[vertexIndices[i]];
+        }
+
+        return VerticesCoordinates;
+    }
+
+    public static bool IsTriangle(List<Vector3> quadCoordinates)
+    {
+        foreach (Vector3 point in quadCoordinates)
+        {
+            List<Vector3> otherPoints = quadCoordinates.Where(quadCoord => quadCoord != point).ToList();
+            if (AreAligned(otherPoints[0], otherPoints[1], otherPoints[2])) return true;
+        }
+
+        return false;
+    }
+
+    public static bool AreAligned(Vector3 p0, Vector3 p1, Vector3 p2)
+    {
+        Vector3 a = (p1 - p0).normalized;
+        Vector3 b = (p2 - p0).normalized;
+
+        return Vector3.Dot(a, b) >= 0.99f || Vector3.Dot(a, b) <= -0.99f;
     }
 }
