@@ -6,27 +6,20 @@ using UnityEngine;
 public class Polygon 
 {
     public List<Vertex> vertices;
-
     public List<Edge> edges;
+    public string name = "";
 
     public Polygon(List<Vertex> vertices)
     {
         this.vertices = vertices;
 
-        GenerateEdges();
-    }
+        foreach (Vertex vertex in vertices)
+        {
+            vertex.polygons.Add(this);
+            this.name += vertex.id + ", ";
+        }
 
-    public Polygon(Vertex[] vertices)
-    {
-        this.vertices = vertices.ToList();
-        
         GenerateEdges();
-    }
-
-    public override bool Equals(object obj)
-    {
-        return obj is Polygon quad &&
-               vertices == quad.vertices;
     }
 
     private void GenerateEdges()
@@ -34,10 +27,13 @@ public class Polygon
         this.edges = new List<Edge>();
         for (int i = 0; i < vertices.Count; i++)
         {
+            Edge edge;
             if (i != vertices.Count - 1)
-                this.edges.Add(new Edge(new List<Vertex>() { vertices[i], vertices[i + 1] }));
+                edge = new Edge(new List<Vertex>() { vertices[i], vertices[i + 1] });
             else
-                this.edges.Add(new Edge(new List<Vertex>() { vertices[i], vertices[0] }));
+                edge = new Edge(new List<Vertex>() { vertices[i], vertices[0] });
+
+            edges.Add(edge);
         }
     }
 
@@ -50,6 +46,12 @@ public class Polygon
         }
 
         return indices;
+    }
+
+    public override bool Equals(object obj)
+    {
+        return obj is Polygon quad &&
+               vertices == quad.vertices;
     }
 
     public object Clone()

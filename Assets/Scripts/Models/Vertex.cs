@@ -16,6 +16,8 @@ public class Vertex
         this.x = x;
         this.y = y;
         this.z = z;
+
+        this.polygons = new List<Polygon>();
     }
 
     public Vertex(int id, Vector3 vertex)
@@ -24,6 +26,8 @@ public class Vertex
         this.x = vertex.x;
         this.y = vertex.y;
         this.z = vertex.z;
+
+        this.polygons = new List<Polygon>();
     }
 
     public Vector3 AsVector()
