@@ -1,26 +1,12 @@
-﻿public class Quad
+﻿using System.Collections.Generic;
+using System.Linq;
+
+public class Quad : Polygon
 {
-    public int vertex0;
-    public int vertex1;
-    public int vertex2;
-    public int vertex3;
 
-    public Quad() { }
-
-    public Quad(int vertex0, int vertex1, int vertex2, int vertex3)
+    public Quad(Vertex vertex0, Vertex vertex1, Vertex vertex2, Vertex vertex3) : base(new List<Vertex>() { vertex0, vertex1, vertex2, vertex3 })
     {
-        this.vertex0 = vertex0;
-        this.vertex1 = vertex1;
-        this.vertex2 = vertex2;
-        this.vertex3 = vertex3;
     }
 
-    public Quad(int[] vertices)
-    {
-        this.vertex0 = vertices[0];
-        this.vertex1 = vertices[1];
-        this.vertex2 = vertices[2];
-        this.vertex3 = vertices[3];
-    }
-
+    public Quad(List<Vertex> vertices) : base(vertices) { }
 }

@@ -10,7 +10,7 @@ public class GridGenerator
     int gridResolution;
     bool mergeTriangles;
 
-    List<Vector3> vertices;
+    List<Vertex> vertices;
     List<Triangle> triangles;
     List<Quad> quads;
 
@@ -21,46 +21,57 @@ public class GridGenerator
         this.gridResolution = gridResolution;
         this.mergeTriangles = mergeTriangles;
 
-        vertices = Helper.CreateList<Vector3>(circleResolution + 1 + (gridResolution * circleResolution));
+        //vertices = Helper.CreateList<Vertex>(circleResolution + 1 + (gridResolution * circleResolution), Vertex.DefaultVertex());
+        vertices = new List<Vertex>();
         triangles = Helper.CreateList<Triangle>((gridResolution + 1) * (gridResolution + 1) * circleResolution);
         quads = new List<Quad>();
     }
 
     public void ConstructMesh()
     {
-        Vector3[] tempVertices = new Vector3[0];
+        List<Vertex> tempVertices = new List<Vertex>();
         float radiusStep = 1f / (gridResolution + 1);
         for (int i = 0; i <= gridResolution; i++)
         {
             float radius = 1 - radiusStep * (i);
-            Vector3[] currentVertices = GeneratePointsOnPolygon(radius, gridResolution - i);
-            tempVertices = tempVertices.Concat(currentVertices).ToArray();
+            List<Vertex> currentVertices = GeneratePointsOnPolygon(radius, gridResolution - i);
+            tempVertices = tempVertices.Concat(currentVertices).ToList();
+            vertices = tempVertices;
         }
 
-        vertices = tempVertices.ToList();
+        //vertices = tempVertices.ToList();
 
         // center vertex
-        vertices.Add(Vector3.zero);
+        //vertices[vertices.Count -1] = new Vertex(vertices.Count - 1, Vector3.zero);
+        vertices.Add(new Vertex(vertices.Count, Vector3.zero));
 
         GenerateTriangles();
 
         if (mergeTriangles) MergeTriangles();
 
+        List<Vector3> verticesAsVector3 = new List<Vector3>();
+        foreach (Vertex vertex in vertices)
+        {
+            verticesAsVector3.Add(vertex.AsVector());
+        }
+
         mesh.Clear();
-        mesh.vertices = vertices.ToArray();
+        mesh.vertices = verticesAsVector3.ToArray();
         //mesh.subMeshCount = 1;
         //mesh.SetIndices(GridService.ListTriangleToArray(triangles), MeshTopology.Triangles, 0);
         //mesh.SetIndices(GridService.ListQuadToArray(quads), MeshTopology.Quads, 1);
 
-        var lines = GridService.ListTriangleLines(triangles).Concat(GridService.ListQuadLines(quads));
+        var triangleLines = GridService.ListTriangleLines(triangles);
+        var quadLines = GridService.ListQuadLines(quads);
+        var lines = triangleLines.Concat(quadLines);
         mesh.SetIndices(lines.ToArray(), MeshTopology.Lines, 0);
 
         //mesh.RecalculateNormals();
     }
 
-    private Vector3[] GeneratePointsOnPolygon(float radius, int nbInterpolatedPoints)
+    private List<Vertex> GeneratePointsOnPolygon(float radius, int nbInterpolatedPoints)
     {
-        Vector3[] vertices = new Vector3[circleResolution + (nbInterpolatedPoints * circleResolution)];
+        List<Vertex> vertices = Helper.CreateList<Vertex>(circleResolution + (nbInterpolatedPoints * circleResolution), Vertex.DefaultVertex());
         int stepCircleIndex = nbInterpolatedPoints + 1;
 
         GeneratePointsOnCircle(radius, ref vertices, stepCircleIndex);
@@ -72,36 +83,39 @@ public class GridGenerator
     /// <summary>
     /// Init "main" points of circle
     /// </summary>
-    private void GeneratePointsOnCircle(float radius, ref Vector3[] vertices, int stepCircleIndex)
+    private void GeneratePointsOnCircle(float radius, ref List<Vertex> vertices, int stepCircleIndex)
     {
         float angle = 2 * Mathf.PI / circleResolution;
+
+        int indexOffset = this.vertices.Count ;
 
         for (int i = 0; i < circleResolution; i++)
         {
             float x = radius * Mathf.Cos(angle * i);
             float z = radius * Mathf.Sin(angle * i);
 
-            vertices[i * stepCircleIndex] = new Vector3(x, 0, z);
+            vertices[i * stepCircleIndex] = new Vertex(indexOffset + i * stepCircleIndex, new Vector3(x, 0, z));
         }
     }
 
     /// <summary>
     /// Interpolate points between main points of circle
     /// </summary>
-    private void GenerateInterpolatedPoints(int nbInterlopatedPoints, ref Vector3[] vertices, int stepCircleIndex)
+    private void GenerateInterpolatedPoints(int nbInterlopatedPoints, ref List<Vertex> vertices, int stepCircleIndex)
     {
+        int indexOffset = this.vertices.Count ;
         for (int i = 0; i < circleResolution; i++)
         {
-            Vector3 a = vertices[i * stepCircleIndex];
+            Vector3 a = vertices[i * stepCircleIndex].AsVector();
             Vector3 b = Vector3.zero;
 
             if (i == circleResolution - 1)
             {
-                b = vertices[0];
+                b = vertices[0].AsVector();
             }
             else
             {
-                b = vertices[(i + 1) * stepCircleIndex];
+                b = vertices[(i + 1) * stepCircleIndex].AsVector();
             }
 
             float step = 1f / stepCircleIndex;
@@ -109,7 +123,7 @@ public class GridGenerator
             for (int j = 0; j < nbInterlopatedPoints; j++)
             {
                 float t = step * (j + 1);
-                vertices[i * stepCircleIndex + (j + 1)] = Vector3.Lerp(a, b, t);
+                vertices[i * stepCircleIndex + (j + 1)] = new Vertex(indexOffset + i * stepCircleIndex + (j + 1), Vector3.Lerp(a, b, t));
             }
         }
     }
@@ -131,22 +145,22 @@ public class GridGenerator
                 int vertexIndex = vertexCircleIndex + vertexOffset;
                 bool lastVertex = vertexCircleIndex == circleSize - 1;
 
-                int firstVertex = vertexIndex;
-                int secondVertex;
-                int thirdVertex;
+                Vertex firstVertex = vertices[vertexIndex];
+                Vertex secondVertex;
+                Vertex thirdVertex;
 
                 if (vertexCircleIndex % (circleEdgeSubdivisions + 1) != 0)
                 {
                     vertexOnNextCircleIndex++;
-                    secondVertex = vertexOnNextCircleIndex - 1;
-                    thirdVertex = lastVertex ? nextCircleFirstVertex : vertexOnNextCircleIndex;
+                    secondVertex = vertices[vertexOnNextCircleIndex - 1];
+                    thirdVertex = lastVertex ? vertices[nextCircleFirstVertex] : vertices[vertexOnNextCircleIndex];
 
                     triangles[triangleIndex] = new Triangle(firstVertex, secondVertex, thirdVertex);
                     triangleIndex += 1;
                 }
 
-                secondVertex = lastVertex ? nextCircleFirstVertex : vertexOnNextCircleIndex;
-                thirdVertex = lastVertex ? vertexOffset : vertexIndex + 1;
+                secondVertex = lastVertex ? vertices[nextCircleFirstVertex] : vertices[vertexOnNextCircleIndex];
+                thirdVertex = lastVertex ? vertices[vertexOffset] : vertices[vertexIndex + 1];
 
                 triangles[triangleIndex] = new Triangle(firstVertex, secondVertex, thirdVertex);
                 triangleIndex += 1;
@@ -171,29 +185,28 @@ public class GridGenerator
             {
                 Triangle triangle = trianglesClone[triangleIndex];
 
-                List<Vector2> edges = triangle.GetEdgesTriangle();
-
                 for (var j = 0; j < trianglesClone.Count; j++)
                 {
                     if (trianglesExist[triangleIndex] && trianglesExist[j] && !triangle.Equals(trianglesClone[j]))
                     {
                         Triangle triangleToCompare = trianglesClone[j];
-                        foreach (Vector2 edge in edges)
+                        foreach (Edge edge in triangle.edges)
                         {
-                            List<Vector2> edgesToCompare = triangleToCompare.GetEdgesTriangle();
+                            List<Edge> edgesToCompare = triangleToCompare.edges;
 
-                            foreach (Vector2 edgeToCompare in edgesToCompare)
+                            foreach (Edge edgeToCompare in edgesToCompare)
                             {
-                                if (GridService.EdgeEquals(edge, edgeToCompare))
+                                if (edge.Equals(edgeToCompare))
                                 {
-                                    List<int> unorderedQuadVerts = GridService.GetQuadVertices(triangle, triangleToCompare);
-                                    Vector3 quadCenter = GridService.GetQuadCenter(unorderedQuadVerts, edge, vertices);
+                                    List<Vertex> unorderedQuadVerts = GridService.GetQuadVertices(triangle, triangleToCompare);
+                                    Vector3 quadCenter = GridService.GetQuadCenter(unorderedQuadVerts, edge);
                                     if (quadCenter != new Vector3(1000, 1000, 1000))
                                     {
-                                        List<Vector3> unorderedQuadVertsCoord = GridService.GetVerticesCoordinates(unorderedQuadVerts, vertices);
-                                        if (GridService.IsConvex(unorderedQuadVertsCoord) && !GridService.IsTriangle(unorderedQuadVertsCoord))
+                                        if (GridService.IsConvex(unorderedQuadVerts) && !GridService.IsTriangle(unorderedQuadVerts))
                                         {
-                                            Quad quad = new Quad(GridService.OrderVertices(unorderedQuadVerts, quadCenter, vertices));
+                                            List<Vertex> orderedVertices = GridService.OrderVertices(unorderedQuadVerts, quadCenter);
+
+                                            Quad quad = new Quad(orderedVertices);
                                             quads.Add(quad);
                                             triangles.Remove(triangle);
                                             triangles.Remove(triangleToCompare);

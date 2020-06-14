@@ -14,6 +14,11 @@ public class Grid : MonoBehaviour
     MeshFilter meshFilter;
     GridGenerator generator;
 
+    private void Update()
+    {
+        GenerateGrid();
+    }
+
     void Initialize()
     {
         if (meshFilter == null)

@@ -19,13 +19,15 @@ public static class Helper
         return listToClone.Select(item => (T)item.Clone()).ToList();
     }
 
-    public static bool PointInTriangle(Vector3 pt, List<Vector3> trianglePoints)
+    public static bool PointInTriangle(Vertex vertex, List<Vertex> trianglePoints)
     {
-        Vector3 v1 = trianglePoints[0];
-        Vector3 v2 = trianglePoints[1];
-        Vector3 v3 = trianglePoints[2];
+        Vector3 v1 = trianglePoints[0].AsVector();
+        Vector3 v2 = trianglePoints[1].AsVector();
+        Vector3 v3 = trianglePoints[2].AsVector();
         float d1, d2, d3;
         bool has_neg, has_pos;
+
+        Vector3 pt = vertex.AsVector();
 
         d1 = sign(pt, v1, v2);
         d2 = sign(pt, v2, v3);
