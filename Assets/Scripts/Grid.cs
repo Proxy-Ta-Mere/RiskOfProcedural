@@ -8,7 +8,8 @@ public class Grid : MonoBehaviour
     [Range(0, 100)]
     public int gridResolution = 0;
 
-    public bool mergeTriangles = true;
+    [Range(0, 100)]
+    public int mergeTriangles = 0;
 
     [SerializeField, HideInInspector]
     MeshFilter meshFilter;

@@ -10,14 +10,14 @@ public class GridGenerator
     Mesh mesh;
     int circleResolution;
     int gridResolution;
-    bool mergeTriangles;
+    int mergeTriangles;
 
     Vector3[] vertices;
     int[][] verticesTriangles;
     int[] triangles;
     int[] quads;
 
-    public GridGenerator(Mesh mesh, int circleResolution, int gridResolution, bool mergeTriangles)
+    public GridGenerator(Mesh mesh, int circleResolution, int gridResolution, int mergeTriangles)
     {
         this.mesh = mesh;
         this.circleResolution = circleResolution;
@@ -52,7 +52,7 @@ public class GridGenerator
 
         GenerateTriangles();
 
-        if (mergeTriangles) MergeTriangles();
+        MergeTriangles();
 
         mesh.Clear();
         mesh.vertices = vertices;
@@ -165,18 +165,22 @@ public class GridGenerator
 
         bool[] trianglesRemoved = new bool[triangles.Length];
 
-        while (remainingTriangles > 0)
+        //int targetTriangleCount = (int)(triangles.Length / 3f - (mergeTriangles / 100f * triangles.Length / 3f));
+        int targetTriangleCount = (int)((1 - (mergeTriangles / 100f)) * triangles.Length / 3f);
+
+        while (remainingTriangles > targetTriangleCount)
         {
             var triangleIndex = GetRandomTriangleIndex();
 
             if (trianglesRemoved[triangleIndex])
                 continue;
 
-            foreach (int[] edge in GetEdges(triangleIndex))
+            foreach (int[] edge in GetEdges(triangleIndex)) 
             {
                 int otherTriangle = GetTriangleFromEdge(edge, triangleIndex);
-
-                if (otherTriangle == -1) continue;
+                
+                if (otherTriangle == -1 || trianglesRemoved[otherTriangle])
+                    continue;
 
                 int[] unorderedQuadVerts = GetQuadVertices(triangleIndex, otherTriangle);
 
@@ -323,7 +327,7 @@ public class GridGenerator
         if (verticesTriangles[vertexIndex] == null)
         {
             //int length = vertexIndex == vertices.Length ? circleResolution : 6;
-            int length = 100; // TODO Pourquoi ? 
+            int length = 100; // TODO Pourquoi ?
             verticesTriangles[vertexIndex] = new int[length];
             for (int i = 0; i < length; i++)
             {
