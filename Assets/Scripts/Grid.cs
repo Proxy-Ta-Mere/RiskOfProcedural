@@ -11,6 +11,8 @@ public class Grid : MonoBehaviour
     [Range(0, 100)]
     public int mergeTriangles = 0;
 
+    public bool subdivideGrid = false;
+
     [SerializeField, HideInInspector]
     MeshFilter meshFilter;
     GridGenerator generator;
@@ -28,7 +30,7 @@ public class Grid : MonoBehaviour
             meshFilter.sharedMesh = new Mesh();
         }
 
-        generator = new GridGenerator(meshFilter.sharedMesh, cicleResolution, gridResolution, mergeTriangles);
+        generator = new GridGenerator(meshFilter.sharedMesh, cicleResolution, gridResolution, mergeTriangles, subdivideGrid);
     }
 
     public void GenerateGrid()

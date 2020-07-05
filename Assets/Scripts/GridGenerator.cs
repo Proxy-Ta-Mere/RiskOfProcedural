@@ -11,22 +11,28 @@ public class GridGenerator
     int circleResolution;
     int gridResolution;
     int mergeTriangles;
+    bool subdivideGrid;
+
+    Vector3 impossiblePoint;
 
     Vector3[] vertices;
     int[][] verticesTriangles;
     int[] triangles;
     int[] quads;
 
-    public GridGenerator(Mesh mesh, int circleResolution, int gridResolution, int mergeTriangles)
+    public GridGenerator(Mesh mesh, int circleResolution, int gridResolution, int mergeTriangles, bool subdivideGrid)
     {
         this.mesh = mesh;
         this.circleResolution = circleResolution;
         this.gridResolution = gridResolution;
         this.mergeTriangles = mergeTriangles;
+        this.subdivideGrid = subdivideGrid;
 
         vertices = new Vector3[circleResolution + 1 + (gridResolution * circleResolution)];
         triangles = new int[(gridResolution + 1) * (gridResolution + 1) * circleResolution * 3];
         quads = new int[0];
+
+        impossiblePoint = GeneratePointOnCircle(1, 2 * Mathf.PI / (circleResolution + 1));
     }
 
     public void ConstructMesh()
@@ -54,6 +60,10 @@ public class GridGenerator
 
         MergeTriangles();
 
+        SubdivideGrid();
+
+        Debug.Log("Vertices : " + vertices.Length + "; Triangles : " + triangles.Length / 3 + "; Quads : " + quads.Length / 4);
+
         mesh.Clear();
         mesh.vertices = vertices;
 
@@ -68,7 +78,9 @@ public class GridGenerator
         Vector3[] vertices = new Vector3[circleResolution + (nbInterpolatedPoints * circleResolution)];
         int stepCircleIndex = nbInterpolatedPoints + 1;
 
-        GeneratePointsOnCircle(radius, ref vertices, stepCircleIndex);
+        float angle = 2 * Mathf.PI / circleResolution;
+
+        GeneratePointsOnCircle(radius, ref vertices, stepCircleIndex, angle);
         GenerateInterpolatedPoints(nbInterpolatedPoints, ref vertices, stepCircleIndex);
 
         return vertices;
@@ -77,19 +89,20 @@ public class GridGenerator
     /// <summary>
     /// Init "main" points of circle
     /// </summary>
-    private void GeneratePointsOnCircle(float radius, ref Vector3[] vertices, int stepCircleIndex)
+    private void GeneratePointsOnCircle(float radius, ref Vector3[] vertices, int stepCircleIndex, float angle)
     {
-        float angle = 2 * Mathf.PI / circleResolution;
-
-        int indexOffset = this.vertices.Length;
-
         for (int i = 0; i < circleResolution; i++)
         {
-            float x = radius * Mathf.Cos(angle * i);
-            float z = radius * Mathf.Sin(angle * i);
-
-            vertices[i * stepCircleIndex] = new Vector3(x, 0, z);
+            vertices[i * stepCircleIndex] = GeneratePointOnCircle(radius, angle * i);
         }
+    }
+
+    public Vector3 GeneratePointOnCircle(float radius, float angle)
+    {
+        float x = radius * Mathf.Cos(angle );
+        float z = radius * Mathf.Sin(angle );
+
+        return new Vector3(x, 0, z);
     }
 
     /// <summary>
@@ -227,6 +240,127 @@ public class GridGenerator
         triangles = newTriangles;
     }
 
+    private void SubdivideGrid()
+    {
+        if (!subdivideGrid) return;
+
+        int[] newQuads = new int[triangles.Length * 4 + quads.Length * 5];
+        //Vector3[] newVertices = new Vector3[(vertices.Length + (int)(triangles.Length * 2.75f) + (int)(quads.Length / 4f) * 5)];
+        Vector3[] newVertices = new Vector3[1000];
+
+        // TODO : Trouver taille de NewVertices
+
+        for (int i = 0; i < newVertices.Length; i++)
+        {
+            newVertices[i] = impossiblePoint;
+        }
+
+        int newQuadIndex = 0;
+        int newVertexIndex = 0;
+
+        // Pour chaque triangle, trouver son triangle center, générer 3 quads a partir des 3(tri)+1(triCenter)+3(3 line center) pts
+        for (int triangleIndex = 0; triangleIndex < triangles.Length; triangleIndex+=3)
+        {
+            Vector3 p0 = vertices[triangles[triangleIndex]];
+            Vector3 p1 = vertices[triangles[triangleIndex + 1]];
+            Vector3 p2 = vertices[triangles[triangleIndex + 2]];
+            Vector3 triangleCenter = GetTriangleCenter(p0, p1, p2);
+
+            Vector3 c0 = GetLineCenter(p0, p1);
+            Vector3 c1 = GetLineCenter(p1, p2);
+            Vector3 c2 = GetLineCenter(p2, p0);
+
+            // First quad
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, triangleCenter);
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, c2);
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, p0);
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, c0);
+
+            // Second quad
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, triangleCenter);
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, c0);
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, p1);
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, c1);
+
+            // Third quad
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, triangleCenter);
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, c1);
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, p2);
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, c2);
+        }
+
+        for (int quadIndex = 0; quadIndex < quads.Length; quadIndex += 4)
+        {
+            Vector3 p0 = vertices[quads[quadIndex]];
+            Vector3 p1 = vertices[quads[quadIndex + 1]];
+            Vector3 p2 = vertices[quads[quadIndex + 2]];
+            Vector3 p3 = vertices[quads[quadIndex + 3]];
+            Vector3 quadCenter = GetQuadCenter(p0, p1, p2, p3);
+            Vector3 c0 = GetLineCenter(p0, p1);
+            Vector3 c1 = GetLineCenter(p1, p2);
+            Vector3 c2 = GetLineCenter(p2, p3);
+            Vector3 c3 = GetLineCenter(p3, p0);
+
+            // First quad
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, quadCenter);
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, c3);
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, p0);
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, c0);
+
+            // Second quad
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, quadCenter);
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, c0);
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, p1);
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, c1);
+
+            // Third quad
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, quadCenter);
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, c1);
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, p2);
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, c2);
+
+            // Fourth quad
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, quadCenter);
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, c2);
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, p3);
+            Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, c3);
+        }
+
+        vertices = newVertices;
+        triangles = new int[0];
+        quads = newQuads;
+    }
+
+    private void Subdivide_AddVertex(ref Vector3[] newVertices, ref int[] newQuads, ref int newVerticesIndex, ref int newQuadsIndex, Vector3 newVertex)
+    {
+        var index = Array.IndexOf(newVertices, newVertex);
+        if (index == -1)
+        {
+            index = newVerticesIndex;
+            newVerticesIndex++;
+        }
+
+        newVertices[index] = newVertex;
+        newQuads[newQuadsIndex] = index;
+
+        newQuadsIndex++;
+    }
+
+    private Vector3 GetLineCenter(Vector3 p0, Vector3 p1)
+    {
+        return Vector3.Lerp(p0, p1, 0.5f);
+    }
+
+    private Vector3 GetTriangleCenter(Vector3 p0, Vector3 p1, Vector3 p2)
+    {
+        return new Vector3((p0.x + p1.x + p2.x) / 3f, 0, (p0.z + p1.z + p2.z) / 3f);
+    }
+
+    private Vector3 GetQuadCenter(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3)
+    {
+        return new Vector3((p0.x + p1.x + p2.x + p3.x) / 4f, 0, (p0.z + p1.z + p2.z + p3.z) / 4f);
+    }
+
     private int GetRandomTriangleIndex()
     {
         int triangleIndex = UnityEngine.Random.Range(0, triangles.Length - 1);
@@ -267,7 +401,7 @@ public class GridGenerator
         return quadVertices;
     }
 
-    public int[][] GetEdges(int triangleIndex)
+    private int[][] GetEdges(int triangleIndex)
     {
         int v0 = triangles[triangleIndex];
         int v1 = triangles[triangleIndex + 1];
@@ -277,10 +411,13 @@ public class GridGenerator
         int[] edge1 = new int[2] { v1, v2 };
         int[] edge2 = new int[2] { v2, v0 };
 
-        return new int[3][] { edge0, edge1, edge2 };
+        var res = new int[3][] { edge0, edge1, edge2 };
+
+        System.Random rnd = new System.Random();
+        return res.OrderBy(x => rnd.Next()).ToArray();
     }
 
-    public int GetTriangleFromEdge(int[] edge, int triangleIndex)
+    private int GetTriangleFromEdge(int[] edge, int triangleIndex)
     {
         int v0 = edge[0];
         int v1 = edge[1];
