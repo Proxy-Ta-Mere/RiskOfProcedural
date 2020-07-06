@@ -62,7 +62,7 @@ public class GridGenerator
 
         SubdivideGrid();
 
-        Debug.Log("Vertices : " + vertices.Length + "; Triangles : " + triangles.Length / 3 + "; Quads : " + quads.Length / 4);
+        //Debug.Log("Vertices : " + vertices.Length + "; Triangles : " + triangles.Length / 3 + "; Quads : " + quads.Length / 4);
 
         mesh.Clear();
         mesh.vertices = vertices;
@@ -242,13 +242,14 @@ public class GridGenerator
 
     private void SubdivideGrid()
     {
+        Debug.Log("1) Vertices : " + vertices.Length + "; Triangles : " + triangles.Length / 3 + "; Quads : " + quads.Length / 4);
+
+
         if (!subdivideGrid) return;
 
         int[] newQuads = new int[triangles.Length * 4 + quads.Length * 5];
-        //Vector3[] newVertices = new Vector3[(vertices.Length + (int)(triangles.Length * 2.75f) + (int)(quads.Length / 4f) * 5)];
-        Vector3[] newVertices = new Vector3[1000];
-
-        // TODO : Trouver taille de NewVertices
+        Vector3[] newVertices = new Vector3[2 * vertices.Length + 2 * (triangles.Length / 3 + quads.Length / 4) - 1];
+        //Vector3[] newVertices = new Vector3[1000];
 
         for (int i = 0; i < newVertices.Length; i++)
         {
@@ -258,7 +259,7 @@ public class GridGenerator
         int newQuadIndex = 0;
         int newVertexIndex = 0;
 
-        // Pour chaque triangle, trouver son triangle center, générer 3 quads a partir des 3(tri)+1(triCenter)+3(3 line center) pts
+        // For each triangle, find triangle center, lines centers and generate 3 quads from this triangle
         for (int triangleIndex = 0; triangleIndex < triangles.Length; triangleIndex+=3)
         {
             Vector3 p0 = vertices[triangles[triangleIndex]];
@@ -289,6 +290,7 @@ public class GridGenerator
             Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, c2);
         }
 
+        // For each quad, find quad center, lines centers and generate 4 quads from this quad
         for (int quadIndex = 0; quadIndex < quads.Length; quadIndex += 4)
         {
             Vector3 p0 = vertices[quads[quadIndex]];
@@ -326,9 +328,12 @@ public class GridGenerator
             Subdivide_AddVertex(ref newVertices, ref newQuads, ref newVertexIndex, ref newQuadIndex, c3);
         }
 
-        vertices = newVertices;
+        vertices = newVertices.Where(point => point != impossiblePoint).ToArray();
+        //vertices = newVertices;
         triangles = new int[0];
         quads = newQuads;
+
+        Debug.Log("2) Vertices : " + vertices.Length + "; Triangles : " + triangles.Length / 3 + "; Quads : " + quads.Length / 4);
     }
 
     private void Subdivide_AddVertex(ref Vector3[] newVertices, ref int[] newQuads, ref int newVerticesIndex, ref int newQuadsIndex, Vector3 newVertex)
@@ -391,7 +396,7 @@ public class GridGenerator
         }
         for (int i = 0; i < 3; i++)
         {
-            int vertexIndex = triangles[triangle2 + i]; // TODO Ca pete ici
+            int vertexIndex = triangles[triangle2 + i];
             if (!quadVertices.Contains(vertexIndex))
             {
                 quadVertices[3] = vertexIndex;
