@@ -20,9 +20,10 @@ public class GridGenerator
     int[][] verticesTriangles;
     int[] triangles;
     int[] quads;
+    int seed;
 
     System.Random rnd;
-    public GridGenerator(Mesh mesh, int circleResolution, int gridResolution, int mergeTriangles, bool subdivideGrid)
+    public GridGenerator(Mesh mesh, int circleResolution, int gridResolution, int mergeTriangles, bool subdivideGrid, int seed)
     {
         this.mesh = mesh;
         this.circleResolution = circleResolution;
@@ -31,7 +32,7 @@ public class GridGenerator
         this.subdivideGrid = subdivideGrid;
 
         //UnityEngine.Random.InitState(0);
-        this.rnd = new System.Random(0);
+        this.rnd = new System.Random(seed);
 
         vertices = new Vector3[circleResolution + 1 + (gridResolution * circleResolution)];
         triangles = new int[(gridResolution + 1) * (gridResolution + 1) * circleResolution * 3];
@@ -204,10 +205,9 @@ public class GridGenerator
 
                 Vector3[] points = GetQuadPoints(unorderedQuadVerts);
 
-                Vector3 quadCenter = GridService.GetQuadCenter(unorderedQuadVerts, edge, vertices);
-
                 if (GridService.IsConvex(points) && !GridService.IsTriangle(points))
                 {
+                    Vector3 quadCenter = GridService.GetQuadCenter(unorderedQuadVerts, edge, vertices);
                     int[] orderedVertices = GridService.OrderVertices(unorderedQuadVerts, quadCenter, vertices);
 
                     quads = quads.Concat(orderedVertices).ToArray();
@@ -247,9 +247,6 @@ public class GridGenerator
 
     private void SubdivideGrid()
     {
-        Debug.Log("1) Vertices : " + vertices.Length + "; Triangles : " + triangles.Length / 3 + "; Quads : " + quads.Length / 4);
-
-
         if (!subdivideGrid) return;
 
         int[] newQuads = new int[triangles.Length * 4 + quads.Length * 5];
@@ -337,8 +334,6 @@ public class GridGenerator
         //vertices = newVertices;
         triangles = new int[0];
         quads = newQuads;
-
-        Debug.Log("2) Vertices : " + vertices.Length + "; Triangles : " + triangles.Length / 3 + "; Quads : " + quads.Length / 4);
     }
 
     private void Subdivide_AddVertex(ref Vector3[] newVertices, ref int[] newQuads, ref int newVerticesIndex, ref int newQuadsIndex, Vector3 newVertex)
