@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.SqlServer.Server;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -20,6 +21,7 @@ public class GridGenerator
     int[] triangles;
     int[] quads;
 
+    System.Random rnd;
     public GridGenerator(Mesh mesh, int circleResolution, int gridResolution, int mergeTriangles, bool subdivideGrid)
     {
         this.mesh = mesh;
@@ -27,6 +29,9 @@ public class GridGenerator
         this.gridResolution = gridResolution;
         this.mergeTriangles = mergeTriangles;
         this.subdivideGrid = subdivideGrid;
+
+        //UnityEngine.Random.InitState(0);
+        this.rnd = new System.Random(0);
 
         vertices = new Vector3[circleResolution + 1 + (gridResolution * circleResolution)];
         triangles = new int[(gridResolution + 1) * (gridResolution + 1) * circleResolution * 3];
@@ -368,7 +373,7 @@ public class GridGenerator
 
     private int GetRandomTriangleIndex()
     {
-        int triangleIndex = UnityEngine.Random.Range(0, triangles.Length - 1);
+        int triangleIndex = rnd.Next(0, triangles.Length - 1);
         int numSteps = (int)Mathf.Floor(triangleIndex / 3);
         int adjustedtriangleIndex = numSteps * 3;
 
@@ -418,7 +423,6 @@ public class GridGenerator
 
         var res = new int[3][] { edge0, edge1, edge2 };
 
-        System.Random rnd = new System.Random();
         return res.OrderBy(x => rnd.Next()).ToArray();
     }
 
